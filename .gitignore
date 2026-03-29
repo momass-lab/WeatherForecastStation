@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# API keys / secrets
+.env
+secrets.py
+
+# Generated model binaries (large files)
+*.tflite
+*.h5
+*.keras
+*.pb
+
+# Data exports (can be regenerated)
+weather_history.csv
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Temp test files
+test_api.py
