@@ -15,11 +15,12 @@ build/
 .env
 secrets.py
 
-# Generated model binaries (large files)
+# Generated model artifacts (can be regenerated)
 *.tflite
 *.h5
 *.keras
 *.pb
+model_data.h
 
 # Data exports (can be regenerated)
 weather_history.csv

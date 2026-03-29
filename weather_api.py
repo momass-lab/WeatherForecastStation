@@ -1,68 +1,91 @@
+"""
+weather_api.py - Fetch hourly weather data from Visual Crossing and export as CSV.
+
+Environment Variables:
+    WEATHER_API_KEY   (required) - Your Visual Crossing API key
+    WEATHER_LOCATION  (optional) - City name, defaults to "Prague"
+
+Output:
+    weather_history.csv  - Hourly records with temp, humidity, pressure, target_temp_3h
+"""
 import os
+import sys
+import urllib.request
+import urllib.error
+import json
+import csv
 
-# Define the weather API parameters
-location = os.getenv("WEATHER_LOCATION", "Prague")
-unit_group = "metric"
-content_type = "json"
-api_key = os.getenv("WEATHER_API_KEY")
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+LOCATION = os.getenv("WEATHER_LOCATION", "Prague")
+API_KEY = os.getenv("WEATHER_API_KEY")
 
-if not api_key:
-    # Notice to user about environment variable requirement
-    print("[!] Warning: WEATHER_API_KEY environment variable is not set.")
-    print("    Please set it using: $env:WEATHER_API_KEY='your_key_here' (PowerShell)")
-    print("    or save it to a .env file and use a loader like python-dotenv.")
+BASE_URL = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
+OUTPUT_CSV = "weather_history.csv"
 
-# We request the default 15-day forecast to get hourly predictions because the historical API limit was reached
-endpoint = ""
-base_url = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
-
-# Construct the full URL
-request_url = f"{base_url}{location}?unitGroup={unit_group}&contentType={content_type}&key={api_key}"
 
 def fetch_and_save_data():
+    """Fetch 15-day hourly forecast, compute 3h target, save to CSV."""
+
+    if not API_KEY:
+        print("[!] Error: WEATHER_API_KEY environment variable is not set.")
+        print("    PowerShell : $env:WEATHER_API_KEY='your_key_here'")
+        print("    Linux/Mac  : export WEATHER_API_KEY='your_key_here'")
+        print("    Or copy .env.example to .env and fill in your key.")
+        sys.exit(1)
+
+    request_url = (
+        f"{BASE_URL}{LOCATION}"
+        f"?unitGroup=metric&contentType=json&key={API_KEY}"
+    )
+
     try:
-        print(f"Fetching historical weather data for {location}...")
-        # Make the request
+        print(f"[*] Fetching weather data for {LOCATION}...")
         with urllib.request.urlopen(request_url) as response:
-            raw_data = response.read()
-            weather_data = json.loads(raw_data)
-            
-            print(f"Data retrieved successfully for: {weather_data['resolvedAddress']}")
-            
-            # Extract hourly data
-            hourly_records = []
-            for day in weather_data['days']:
-                if 'hours' in day:
-                    for hour in day['hours']:
-                        hourly_records.append({
-                            'datetime': f"{day['datetime']} {hour['datetime']}",
-                            'temp': hour['temp'],
-                            'humidity': hour['humidity'],
-                            'pressure': hour['pressure']
-                        })
-            
-            # We need to add 'target_temp_3h' by looking 3 hours ahead
-            for i in range(len(hourly_records) - 3):
-                hourly_records[i]['target_temp_3h'] = hourly_records[i + 3]['temp']
-                
-            # Drop the last 3 records since they don't have a 3-hour target
-            hourly_records = hourly_records[:-3]
-            
-            # Save to CSV
-            output_csv = "weather_history.csv"
-            with open(output_csv, mode='w', newline='', encoding='utf-8') as file:
-                writer = csv.DictWriter(file, fieldnames=['datetime', 'temp', 'humidity', 'pressure', 'target_temp_3h'])
-                writer.writeheader()
-                writer.writerows(hourly_records)
-                
-            print(f"Saved {len(hourly_records)} hourly records to {output_csv}")
-            return output_csv
+            weather_data = json.loads(response.read())
+
+        print(f"[+] Data retrieved for: {weather_data['resolvedAddress']}")
+
+        # Extract hourly records
+        hourly_records = []
+        for day in weather_data["days"]:
+            for hour in day.get("hours", []):
+                hourly_records.append({
+                    "datetime": f"{day['datetime']} {hour['datetime']}",
+                    "temp": hour["temp"],
+                    "humidity": hour["humidity"],
+                    "pressure": hour["pressure"],
+                })
+
+        if len(hourly_records) < 4:
+            print("[!] Error: Not enough hourly data returned (need at least 4 hours).")
+            sys.exit(1)
+
+        # Compute target_temp_3h (temperature 3 hours in the future)
+        for i in range(len(hourly_records) - 3):
+            hourly_records[i]["target_temp_3h"] = hourly_records[i + 3]["temp"]
+
+        # Drop last 3 (no future target available)
+        hourly_records = hourly_records[:-3]
+
+        # Write CSV
+        fieldnames = ["datetime", "temp", "humidity", "pressure", "target_temp_3h"]
+        with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(hourly_records)
+
+        print(f"[+] Saved {len(hourly_records)} hourly records to {OUTPUT_CSV}")
+        return OUTPUT_CSV
 
     except urllib.error.HTTPError as e:
-        print("HTTP Error:", e.code)
-        print(e.read())
+        print(f"[!] HTTP Error {e.code}: {e.read().decode('utf-8', errors='replace')}")
+        sys.exit(1)
     except urllib.error.URLError as e:
-        print("URL Error:", e.reason)
+        print(f"[!] URL Error: {e.reason}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     fetch_and_save_data()
