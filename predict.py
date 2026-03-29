@@ -18,9 +18,13 @@ import urllib.error
 # ─────────────────────────────────────────────
 # Config
 # ─────────────────────────────────────────────
-LOCATION   = "Prague"
-API_KEY    = "8LNTSZ4T5336JZB5SASEPJH4L"
+LOCATION   = os.getenv("WEATHER_LOCATION", "Prague")
+API_KEY    = os.getenv("WEATHER_API_KEY")
 MODEL_PATH = "weather_rl_model.tflite"
+
+if not API_KEY:
+    print("[!] Warning: WEATHER_API_KEY environment variable is not set.")
+    print("    Live API fetching will be disabled. Using CSV fallback.")
 
 # Must match train_weather_rl.py normalization constants exactly!
 TEMP_MEAN   = 15.0;  TEMP_STD   = 35.0

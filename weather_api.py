@@ -1,13 +1,16 @@
-import urllib.request
-import json
-import csv
-import urllib.error
+import os
 
 # Define the weather API parameters
-location = "Prague"
+location = os.getenv("WEATHER_LOCATION", "Prague")
 unit_group = "metric"
 content_type = "json"
-api_key = "8LNTSZ4T5336JZB5SASEPJH4L"
+api_key = os.getenv("WEATHER_API_KEY")
+
+if not api_key:
+    # Notice to user about environment variable requirement
+    print("[!] Warning: WEATHER_API_KEY environment variable is not set.")
+    print("    Please set it using: $env:WEATHER_API_KEY='your_key_here' (PowerShell)")
+    print("    or save it to a .env file and use a loader like python-dotenv.")
 
 # We request the default 15-day forecast to get hourly predictions because the historical API limit was reached
 endpoint = ""
